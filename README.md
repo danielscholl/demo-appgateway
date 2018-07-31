@@ -69,8 +69,8 @@ New-AzureRmResourceGroupDeployment -Name TemplateDemo `
 Follow the steps below to create dummy web sites.
 
 1. Go to the Web Site App Service Editor and add the following files.
-  - keepalive.html  # Required for health probe
-  - index.html      # Simple Home page
+    - keepalive.html  # Required for health probe
+    - index.html      # Simple Home page
 
 1. Add DNS Records in the domain for the following
    - site1.cloudcodeit.com  # A Record to the App Gateway
