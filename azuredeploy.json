@@ -1,0 +1,596 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "prefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Small unique string."
+      },
+      "minLength": 2,
+      "maxLength": 11
+    },
+    "storageAccountType": {
+      "type": "string",
+      "metadata": {
+        "description": "Account type, premium vs standard, and local, global redundancy"
+      },
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Premium_LRS"
+      ],
+      "defaultValue": "Standard_LRS"
+    },
+    "servicePrincipalAppId": {
+      "type": "string",
+      "metadata": {
+        "description": "Service Principal App ID (also called Client ID) that has contributor rights to the subscription used for this deployment."
+      }
+    },
+    "wafEnabled": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "WAF Enabled"
+      }
+    },
+    "wafMode": {
+      "type": "string",
+      "allowedValues": [
+        "Detection",
+        "Prevention"
+      ],
+      "defaultValue": "Detection",
+      "metadata": {
+        "description": "WAF Mode"
+      }
+    },
+    "wafRuleSetType": {
+      "type": "string",
+      "allowedValues": [
+        "OWASP"
+      ],
+      "defaultValue": "OWASP",
+      "metadata": {
+        "description": "WAF Rule Set Type"
+      }
+    },
+    "wafRuleSetVersion": {
+      "type": "string",
+      "allowedValues": [
+        "2.2.9",
+        "3.0"
+      ],
+      "defaultValue": "3.0",
+      "metadata": {
+        "description": "WAF Rule Set Version"
+      }
+    },
+    "site1CertData": {
+      "type": "string",
+      "metadata": {
+        "description": "Base-64 encoded form of the .pfx file. This is the cert terminating on the Application Gateway."
+      }
+    },
+    "site2CertData": {
+      "type": "string",
+      "metadata": {
+        "description": "Base-64 encoded form of the .pfx file. This is the cert terminating on the Application Gateway."
+      }
+    },
+    "siteCertPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for .pfx certificate"
+      }
+    },
+    "site1AuthData": {
+      "type": "string",
+      "metadata": {
+        "description": "Site Cer file. This is the cert terminating on the Web Site."
+      }
+    },
+    "site2AuthData": {
+      "type": "string",
+      "metadata": {
+        "description": "Site Cer file. This is the cert terminating on the Web Site."
+      }
+    }
+  },
+  "variables": {
+    "cleanUnique": "[toLower(replace(parameters('prefix'),'-', ''))]",
+    "storageAccountName": "[concat(variables('cleanUnique'), uniqueString(resourceGroup().id))]",
+    "keyVaultName": "[concat(variables('cleanUnique'), '-kv-' , uniqueString(resourceGroup().id))]",
+    "hostingPlanName": "[concat(parameters('prefix'), '-plan')]",
+    "site1Name": "[concat(parameters('prefix'), '-web-1')]",
+    "site2Name": "[concat(parameters('prefix'), '-web-2')]",
+    "publicIpName": "[concat(parameters('prefix'), '-ip')]",
+    "publicIPRef": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]",
+    "vnetName": "[concat(parameters('prefix'), '-vnet')]",
+    "addressPrefix": "10.0.0.0/16",
+    "subnetPrefix": "10.0.0.0/28",
+    "subnetName": "appGatewaySubnet",
+    "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]",
+    "appGatewayName": "[concat(parameters('prefix'), '-gw')]",
+    "appGatewayId": "[resourceId('Microsoft.Network/applicationGateways',variables('appGatewayName'))]"
+  },
+  "resources": [
+    {
+      "comments": "## Storage Account ##",
+      "name": "[variables('storageAccountName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2016-01-01",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "Storage Account"
+      },
+      "kind": "Storage",
+      "sku": {
+        "name": "[parameters('storageAccountType')]",
+        "tier": "Standard"
+      },
+      "properties": {
+        "encryption": {
+          "keySource": "Microsoft.Storage",
+          "services": {
+            "blob": {
+              "enabled": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "comments": "## Key Vault ##",
+      "type": "Microsoft.KeyVault/vaults",
+      "name": "[variables('keyVaultName')]",
+      "apiVersion": "2015-06-01",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "Company": "[parameters('prefix')]"
+      },
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[parameters('servicePrincipalAppId')]",
+            "permissions": {
+              "keys": [
+                "all"
+              ],
+              "secrets": [
+                "all"
+              ],
+              "certificates": [
+                "all"
+              ]
+            }
+          }
+        ],
+        "enabledForDeployment": true,
+        "enabledForTemplateDeployment": true,
+        "enabledForVolumeEncryption": true
+      },
+      "resources": []
+    },
+    {
+      "apiVersion": "2016-09-01",
+      "name": "[variables('hostingPlanName')]",
+      "type": "Microsoft.Web/serverfarms",
+      "kind": "app",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "S1"
+      },
+      "properties": {}
+    },
+    {
+      "apiVersion": "2016-08-01",
+      "type": "Microsoft.Web/sites",
+      "name": "[variables('site1Name')]",
+      "dependsOn": [
+        "[variables('hostingPlanName')]"
+      ],
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "name": "[variables('site1Name')]",
+        "serverFarmId": "[variables('hostingPlanName')]"
+      }
+    },
+    {
+      "apiVersion": "2016-08-01",
+      "type": "Microsoft.Web/sites",
+      "name": "[variables('site2Name')]",
+      "dependsOn": [
+        "[variables('hostingPlanName')]"
+      ],
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "name": "[variables('site2Name')]",
+        "serverFarmId": "[variables('hostingPlanName')]"
+      }
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIpName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('vnetName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "name": "[variables('appGatewayName')]",
+      "type": "Microsoft.Network/applicationGateways",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('vnetName'))]",
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIpName'))]"
+      ],
+      "properties": {
+        "sku": {
+          "name": "WAF_Medium",
+          "tier": "WAF",
+          "capacity": 2
+        },
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ],
+        "sslCertificates": [
+          {
+            "name": "site-1-cert",
+            "properties": {
+              "data": "[parameters('site1CertData')]",
+              "password": "[parameters('siteCertPassword')]"
+            }
+          },
+          {
+            "name": "site-2-cert",
+            "properties": {
+              "data": "[parameters('site2CertData')]",
+              "password": "[parameters('siteCertPassword')]"
+            }
+          }
+        ],
+        "authenticationCertificates": [
+          {
+            "name": "site-1-auth",
+            "properties": {
+              "data": "[parameters('site1AuthData')]"
+            }
+          },
+          {
+            "name": "site-2-auth",
+            "properties": {
+              "data": "[parameters('site2AuthData')]"
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "appGatewayFrontendIP",
+            "properties": {
+              "PublicIPAddress": {
+                "id": "[variables('publicIPRef')]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "appGatewayFrontendPort80",
+            "properties": {
+              "Port": 80
+            }
+          },
+          {
+            "name": "appGatewayFrontendPort443",
+            "properties": {
+              "Port": 443
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "site-1-http-listener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendPorts/appGatewayFrontendPort80')]"
+              },
+              "Protocol": "Http",
+              "hostName": "site1.cloudcodeit.com",
+              "SslCertificate": null
+            }
+          },
+          {
+            "name": "site-1-https-listener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendPorts/appGatewayFrontendPort443')]"
+              },
+              "Protocol": "Https",
+              "hostName": "site1.cloudcodeit.com",
+              "SslCertificate": {
+                "Id": "[concat(variables('appGatewayId'), '/sslCertificates/site-1-cert')]"
+              }
+            }
+          },
+          {
+            "name": "site-2-http-listener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendPorts/appGatewayFrontendPort80')]"
+              },
+              "Protocol": "Http",
+              "hostName": "site2.cloudcodeit.com",
+              "SslCertificate": null
+            }
+          },
+          {
+            "name": "site-2-https-listener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendIPConfigurations/appGatewayFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appGatewayId'), '/frontendPorts/appGatewayFrontendPort443')]"
+              },
+              "Protocol": "Https",
+              "hostName": "site2.cloudcodeit.com",
+              "SslCertificate": {
+                "Id": "[concat(variables('appGatewayId'), '/sslCertificates/site-2-cert')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "Name": "site-1-http-probe",
+            "properties": {
+              "Protocol": "Http",
+              "Path": "/keepalive.html",
+              "Interval": 30,
+              "Timeout": 10,
+              "UnhealthyThreshold": 3,
+              "MinServers": 0,
+              "PickHostNameFromBackendHttpSettings": true
+            }
+          },
+          {
+            "Name": "site-1-https-probe",
+            "properties": {
+              "Protocol": "Https",
+              "Path": "/keepalive.html",
+              "Interval": 30,
+              "Timeout": 10,
+              "UnhealthyThreshold": 3,
+              "MinServers": 0,
+              "Host": "web1.cloudcodeit.com"
+            }
+          },
+          {
+            "Name": "site-2-http-probe",
+            "properties": {
+              "Protocol": "Http",
+              "Path": "/keepalive.html",
+              "Interval": 30,
+              "Timeout": 10,
+              "UnhealthyThreshold": 3,
+              "MinServers": 0,
+              "PickHostNameFromBackendHttpSettings": true
+            }
+          },
+          {
+            "Name": "site-2-https-probe",
+            "properties": {
+              "Protocol": "Https",
+              "Path": "/keepalive.html",
+              "Interval": 30,
+              "Timeout": 10,
+              "UnhealthyThreshold": 3,
+              "MinServers": 0,
+              "Host": "web2.cloudcodeit.com"
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "site-1-http-settings",
+            "properties": {
+              "Port": 80,
+              "Protocol": "Http",
+              "CookieBasedAffinity": "Disabled",
+              "PickHostNameFromBackendAddress": true,
+              "ProbeEnabled": "true",
+              "Probe": {
+                "id": "[concat(variables('appGatewayId'), '/probes/site-1-http-probe')]"
+              }
+            }
+          },
+          {
+            "name": "site-1-https-settings",
+            "properties": {
+              "Port": 443,
+              "Protocol": "Https",
+              "CookieBasedAffinity": "Disabled",
+              "ProbeEnabled": "true",
+              "Probe": {
+                "id": "[concat(variables('appGatewayId'), '/probes/site-1-https-probe')]"
+              },
+              "authenticationCertificates": [
+                {
+                  "id": "[concat(variables('appGatewayId'), '/authenticationCertificates/site-1-auth')]"
+                }
+              ]
+            }
+          },
+          {
+            "name": "site-2-http-settings",
+            "properties": {
+              "Port": 80,
+              "Protocol": "Http",
+              "CookieBasedAffinity": "Disabled",
+              "PickHostNameFromBackendAddress": true,
+              "ProbeEnabled": "true",
+              "Probe": {
+                "id": "[concat(variables('appGatewayId'), '/probes/site-2-http-probe')]"
+              }
+            }
+          },
+          {
+            "name": "site-2-https-settings",
+            "properties": {
+              "Port": 443,
+              "Protocol": "Https",
+              "CookieBasedAffinity": "Disabled",
+              "ProbeEnabled": "true",
+              "Probe": {
+                "id": "[concat(variables('appGatewayId'), '/probes/site-2-https-probe')]"
+              },
+              "authenticationCertificates": [
+                {
+                  "id": "[concat(variables('appGatewayId'), '/authenticationCertificates/site-2-auth')]"
+                }
+              ]
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "site-1-pool",
+            "properties": {
+              "BackendAddresses": [
+                {
+                  "IpAddress": "[concat(variables('site1Name'), '.azurewebsites.net')]"
+                }
+              ]
+            }
+          },
+          {
+            "name": "site-2-pool",
+            "properties": {
+              "BackendAddresses": [
+                {
+                  "IpAddress": "[concat(variables('site2Name'), '.azurewebsites.net')]"
+                }
+              ]
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "Name": "site-1-http-rule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appGatewayId'), '/httpListeners/site-1-http-listener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appGatewayId'), '/backendAddressPools/site-1-pool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-1-http-settings')]"
+              }
+            }
+          },
+          {
+            "Name": "site-1-https-rule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appGatewayId'), '/httpListeners/site-1-https-listener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appGatewayId'), '/backendAddressPools/site-1-pool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-1-https-settings')]"
+              }
+            }
+          },
+          {
+            "Name": "site-2-http-rule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appGatewayId'), '/httpListeners/site-2-http-listener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appGatewayId'), '/backendAddressPools/site-2-pool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-2-http-settings')]"
+              }
+            }
+          },
+          {
+            "Name": "site-2-https-rule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appGatewayId'), '/httpListeners/site-2-https-listener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appGatewayId'), '/backendAddressPools/site-2-pool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-2-https-settings')]"
+              }
+            }
+          }
+        ],
+        "webApplicationFirewallConfiguration": {
+          "enabled": "[parameters('wafEnabled')]",
+          "firewallMode": "[parameters('wafMode')]",
+          "ruleSetType": "[parameters('wafRuleSetType')]",
+          "ruleSetVersion": "[parameters('wafRuleSetVersion')]",
+          "disabledRuleGroups": []
+        }
+      }
+    }
+  ]
+}
