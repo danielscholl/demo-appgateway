@@ -86,8 +86,7 @@ Follow the steps below to create dummy web sites.
    - Allow {x.x.x.x}/32 - Priority 300
    - Deny 0.0.0.0/0     - Priority 400
 
-## Setup the Web Sites
-Reference Articles
+## Reference Articles
 
 [ARM API for App Gateways](https://docs.microsoft.com/en-us/azure/templates/Microsoft.Network/applicationGateways?toc=%2Fen-us%2Fazure%2Fazure-resource-manager%2Ftoc.json&bc=%2Fen-us%2Fazure%2Fbread%2Ftoc.json)
 
