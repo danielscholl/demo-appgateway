@@ -72,15 +72,19 @@ Follow the steps below to create dummy web sites.
   - keepalive.html  # Required for health probe
   - index.html      # Simple Home page
 
-2. Add DNS Records in the domain for the following
+1. Add DNS Records in the domain for the following
    - site1.cloudcodeit.com  # A Record to the App Gateway
    - site2.cloudcodeit.com  # A Record to the App Gateway
    - web1.cloudcodeit.com   # CName Record to the Web App
    - web2.cloudcodeit.com   # CName Record to the Web App
 
-3. Upload the Web Certs and add the SSL Bindings
+1. Upload the Web Certs and add the SSL Bindings
    - web1.cloudcodeit.com
    - web2.cloudcodeit.com
+
+1. Whitelist the App Gateway IP Address
+   - Allow {x.x.x.x}/32 - Priority 300
+   - Deny 0.0.0.0/0     - Priority 400
 
 ## Setup the Web Sites
 Reference Articles
