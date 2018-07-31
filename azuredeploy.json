@@ -457,6 +457,7 @@
               "Port": 443,
               "Protocol": "Https",
               "CookieBasedAffinity": "Disabled",
+              "PickHostNameFromBackendAddress": true,
               "ProbeEnabled": "true",
               "Probe": {
                 "id": "[concat(variables('appGatewayId'), '/probes/site-1-https-probe')]"
@@ -487,6 +488,7 @@
               "Port": 443,
               "Protocol": "Https",
               "CookieBasedAffinity": "Disabled",
+              "PickHostNameFromBackendAddress": true,
               "ProbeEnabled": "true",
               "Probe": {
                 "id": "[concat(variables('appGatewayId'), '/probes/site-2-https-probe')]"
