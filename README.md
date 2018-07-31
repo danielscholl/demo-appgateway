@@ -82,4 +82,13 @@ Follow the steps below to create dummy web sites.
    - web1.cloudcodeit.com
    - web2.cloudcodeit.com
 
+## Setup the Web Sites
+Reference Articles
+
+[ARM API for App Gateways](https://docs.microsoft.com/en-us/azure/templates/Microsoft.Network/applicationGateways?toc=%2Fen-us%2Fazure%2Fazure-resource-manager%2Ftoc.json&bc=%2Fen-us%2Fazure%2Fbread%2Ftoc.json)
+[End to End SSL Powershell](https://docs.microsoft.com/en-us/azure/application-gateway/application-gateway-end-to-end-ssl-powershell)
+[SSL Termination](https://docs.microsoft.com/en-us/azure/application-gateway/create-ssl-portal)
+[Geo Redundancy](https://www.cameronvetter.com/2018/03/09/using-azure-application-gateway-wafs-to-secure-azure-web-apps-and-traffic-manager-for-geo-redundancy/)
+[End to End SSL](https://docs.microsoft.com/en-us/azure/application-gateway/application-gateway-end-to-end-ssl-powershell)
+[302 Redirect](https://docs.microsoft.com/en-us/azure/application-gateway/application-gateway-redirect-overview)
 

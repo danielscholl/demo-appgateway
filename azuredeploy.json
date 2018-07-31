@@ -531,11 +531,8 @@
               "httpListener": {
                 "id": "[concat(variables('appGatewayId'), '/httpListeners/site-1-http-listener')]"
               },
-              "backendAddressPool": {
-                "id": "[concat(variables('appGatewayId'), '/backendAddressPools/site-1-pool')]"
-              },
-              "backendHttpSettings": {
-                "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-1-http-settings')]"
+              "redirectConfiguration": {
+                "id": "[concat(variables('appGatewayId'), '/redirectConfigurations/site-1-http-rule')]"
               }
             }
           },
@@ -561,11 +558,8 @@
               "httpListener": {
                 "id": "[concat(variables('appGatewayId'), '/httpListeners/site-2-http-listener')]"
               },
-              "backendAddressPool": {
-                "id": "[concat(variables('appGatewayId'), '/backendAddressPools/site-2-pool')]"
-              },
-              "backendHttpSettings": {
-                "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-2-http-settings')]"
+              "redirectConfiguration": {
+                "id": "[concat(variables('appGatewayId'), '/redirectConfigurations/site-2-http-rule')]"
               }
             }
           },
@@ -582,6 +576,40 @@
               "backendHttpSettings": {
                 "id": "[concat(variables('appGatewayId'), '/backendHttpSettingsCollection/site-2-https-settings')]"
               }
+            }
+          }
+        ],
+        "redirectConfigurations": [
+          {
+            "name": "site-1-http-rule",
+            "properties": {
+              "redirectType": "Temporary",
+              "targetListener": {
+                "id": "[concat(variables('appGatewayId'), '/httpListeners/site-1-https-listener')]"
+              },
+              "includePath": false,
+              "includeQueryString": false,
+              "requestRoutingRules": [
+                {
+                  "id": "[concat(variables('appGatewayId'), '/requestRoutingRules/site-1-http-rule')]"
+                }
+              ]
+            }
+          },
+          {
+            "name": "site-2-http-rule",
+            "properties": {
+              "redirectType": "Temporary",
+              "targetListener": {
+                "id": "[concat(variables('appGatewayId'), '/httpListeners/site-2-https-listener')]"
+              },
+              "includePath": false,
+              "includeQueryString": false,
+              "requestRoutingRules": [
+                {
+                  "id": "[concat(variables('appGatewayId'), '/requestRoutingRules/site-2-http-rule')]"
+                }
+              ]
             }
           }
         ],
