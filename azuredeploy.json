@@ -505,7 +505,7 @@
             "properties": {
               "BackendAddresses": [
                 {
-                  "IpAddress": "[concat(variables('site1Name'), '.azurewebsites.net')]"
+                  "IpAddress": "web1.cloudcodeit.com"
                 }
               ]
             }
@@ -515,7 +515,7 @@
             "properties": {
               "BackendAddresses": [
                 {
-                  "IpAddress": "[concat(variables('site2Name'), '.azurewebsites.net')]"
+                  "IpAddress": "web2.cloudcodeit.com"
                 }
               ]
             }
